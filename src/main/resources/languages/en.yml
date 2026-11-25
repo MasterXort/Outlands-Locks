@@ -1,0 +1,158 @@
+# Text: MiniMessage format.
+# type: chat | actionbar | none
+# sound: any sound key (vanilla, Nexo or resource pack) with volume and pitch, or "none".
+# Placeholders: {player}, {lock_id}, {key_cut}, {world}, {x}, {y}, {z}, {item}, {amount}
+# PlaceholderAPI placeholders (%...%) are supported if PlaceholderAPI is installed.
+
+# Item names, vanilla mode only.
+items:
+  lock: "<!italic>Lock"
+  blank-key: "<!italic>Blank Key"
+  key: "<!italic>Key"
+
+# Lore lines of locks and keys, used when item-lore is on in config.yml. An empty line is left out.
+lore:
+  lock-id: "<!italic><dark_gray>{lock_id}"
+  lock-unbound: "<!italic><gray>Not set up"
+  lock-bound: "<!italic><gray>Set up for a key"
+  key-id: "<!italic><dark_gray>{lock_id}"
+
+messages:
+
+  lock-installed:
+    type: actionbar
+    text: "<gray>You attached a lock."
+    sound: { key: block.chain.place, volume: 1.0, pitch: 1.0 }
+
+  lock-bound:
+    type: actionbar
+    text: "<gray>You tied the lock to the key."
+    sound: { key: block.chain.place, volume: 1.0, pitch: 1.4 }
+
+  lock-already-locked:
+    type: actionbar
+    text: "<red>This is already locked."
+    sound: none
+
+  key-cut:
+    type: actionbar
+    text: "<gray>You cut a key."
+    sound: { key: block.smithing_table.use, volume: 1.0, pitch: 1.2 }
+
+  key-already-cut:
+    type: actionbar
+    text: "<red>A key for this lock has already been cut."
+    sound: none
+
+  chest-locked:
+    type: actionbar
+    text: "<red>Locked."
+    sound: { key: block.chest.locked, volume: 1.0, pitch: 1.0 }
+
+  lock-removed:
+    type: actionbar
+    text: "<gray>You removed the lock."
+    sound: { key: block.chain.break, volume: 1.0, pitch: 1.0 }
+
+  lock-removed-dropped:
+    type: actionbar
+    text: "<gray>You removed the lock. Inventory full — it dropped at your feet."
+    sound: { key: block.chain.break, volume: 1.0, pitch: 1.0 }
+
+  remove-wrong-key:
+    type: actionbar
+    text: "<red>This key does not fit the lock."
+    sound: { key: block.chest.locked, volume: 1.0, pitch: 1.2 }
+
+  remove-need-main-hand:
+    type: actionbar
+    text: "<red>Hold the key in your main hand to remove the lock."
+    sound: none
+
+  break-denied:
+    type: actionbar
+    text: "<red>A locked object cannot be broken."
+    sound: none
+
+  key-copied:
+    type: none
+    text: ""
+    sound: { key: block.smithing_table.use, volume: 0.8, pitch: 1.4 }
+
+  admin-inspect:
+    type: chat
+    text: |-
+      <gold>Lock</gold> <gray>{world} {x} {y} {z}
+      <gray>ID: <white>{lock_id}
+      <gray>Key cut: <white>{key_cut}
+    sound: none
+
+  admin-removed:
+    type: chat
+    text: "<green>Lock removed and dropped nearby: {world} {x} {y} {z}"
+    sound: none
+
+  admin-destroyed:
+    type: chat
+    text: "<green>Lock destroyed: {world} {x} {y} {z}"
+    sound: none
+
+  admin-copykey:
+    type: chat
+    text: "<green>Key copy given for lock <white>{lock_id}"
+    sound: none
+
+  admin-copylock:
+    type: chat
+    text: "<green>Lock copy given: <white>{lock_id}"
+    sound: none
+
+  admin-give:
+    type: chat
+    text: "<green>Given: {item} x{amount} → {player}"
+    sound: none
+
+  admin-item-unavailable:
+    type: chat
+    text: "<red>Item could not be created. Check the item settings in config.yml."
+    sound: none
+
+  admin-player-not-found:
+    type: chat
+    text: "<red>Player not found."
+    sound: none
+
+  admin-reloaded:
+    type: chat
+    text: "<green>Config and language files reloaded."
+    sound: none
+
+  admin-reload-failed:
+    type: chat
+    text: "<red>Reload failed, previous settings kept. See console for details."
+    sound: none
+
+  admin-reload-provider-restart:
+    type: chat
+    text: "<yellow>item-provider change will apply after a server restart."
+    sound: none
+
+  admin-not-locked:
+    type: chat
+    text: "<red>There is no lock on this object."
+    sound: none
+
+  admin-no-target:
+    type: chat
+    text: "<red>Look at a locked object."
+    sound: none
+
+  admin-no-permission:
+    type: chat
+    text: "<red>You don't have permission."
+    sound: none
+
+  admin-usage:
+    type: chat
+    text: "<gray>/outlands-locks <inspect|remove|destroy|copykey|copylock|give|reload>"
+    sound: none

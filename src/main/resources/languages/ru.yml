@@ -1,0 +1,158 @@
+# Text: MiniMessage format.
+# type: chat | actionbar | none
+# sound: any sound key (vanilla, Nexo or resource pack) with volume and pitch, or "none".
+# Placeholders: {player}, {lock_id}, {key_cut}, {world}, {x}, {y}, {z}, {item}, {amount}
+# PlaceholderAPI placeholders (%...%) are supported if PlaceholderAPI is installed.
+
+# Item names, vanilla mode only.
+items:
+  lock: "<!italic>Замок"
+  blank-key: "<!italic>Заготовка ключа"
+  key: "<!italic>Ключ"
+
+# Lore lines of locks and keys, used when item-lore is on in config.yml. An empty line is left out.
+lore:
+  lock-id: "<!italic><dark_gray>{lock_id}"
+  lock-unbound: "<!italic><gray>Не настроен"
+  lock-bound: "<!italic><gray>Настроен на ключ"
+  key-id: "<!italic><dark_gray>{lock_id}"
+
+messages:
+
+  lock-installed:
+    type: actionbar
+    text: "<gray>Вы повесили замок."
+    sound: { key: block.chain.place, volume: 1.0, pitch: 1.0 }
+
+  lock-bound:
+    type: actionbar
+    text: "<gray>Вы привязали замок к ключу."
+    sound: { key: block.chain.place, volume: 1.0, pitch: 1.4 }
+
+  lock-already-locked:
+    type: actionbar
+    text: "<red>Уже заперто на замок."
+    sound: none
+
+  key-cut:
+    type: actionbar
+    text: "<gray>Вы нарезали ключ."
+    sound: { key: block.smithing_table.use, volume: 1.0, pitch: 1.2 }
+
+  key-already-cut:
+    type: actionbar
+    text: "<red>Ключ к этому замку уже нарезан."
+    sound: none
+
+  chest-locked:
+    type: actionbar
+    text: "<red>Заперто."
+    sound: { key: block.chest.locked, volume: 1.0, pitch: 1.0 }
+
+  lock-removed:
+    type: actionbar
+    text: "<gray>Вы сняли замок."
+    sound: { key: block.chain.break, volume: 1.0, pitch: 1.0 }
+
+  lock-removed-dropped:
+    type: actionbar
+    text: "<gray>Вы сняли замок. Инвентарь полон — замок упал под ноги."
+    sound: { key: block.chain.break, volume: 1.0, pitch: 1.0 }
+
+  remove-wrong-key:
+    type: actionbar
+    text: "<red>Этот ключ не подходит к замку."
+    sound: { key: block.chest.locked, volume: 1.0, pitch: 1.2 }
+
+  remove-need-main-hand:
+    type: actionbar
+    text: "<red>Чтобы снять замок, держите ключ в основной руке."
+    sound: none
+
+  break-denied:
+    type: actionbar
+    text: "<red>Запертое не сломать."
+    sound: none
+
+  key-copied:
+    type: none
+    text: ""
+    sound: { key: block.smithing_table.use, volume: 0.8, pitch: 1.4 }
+
+  admin-inspect:
+    type: chat
+    text: |-
+      <gold>Замок</gold> <gray>{world} {x} {y} {z}
+      <gray>ID: <white>{lock_id}
+      <gray>Ключ нарезан: <white>{key_cut}
+    sound: none
+
+  admin-removed:
+    type: chat
+    text: "<green>Замок снят и выброшен рядом: {world} {x} {y} {z}"
+    sound: none
+
+  admin-destroyed:
+    type: chat
+    text: "<green>Замок уничтожен: {world} {x} {y} {z}"
+    sound: none
+
+  admin-copykey:
+    type: chat
+    text: "<green>Выдана копия ключа к замку <white>{lock_id}"
+    sound: none
+
+  admin-copylock:
+    type: chat
+    text: "<green>Выдана копия замка <white>{lock_id}"
+    sound: none
+
+  admin-give:
+    type: chat
+    text: "<green>Выдано: {item} x{amount} → {player}"
+    sound: none
+
+  admin-item-unavailable:
+    type: chat
+    text: "<red>Не удалось создать предмет. Проверьте настройки предметов в config.yml."
+    sound: none
+
+  admin-player-not-found:
+    type: chat
+    text: "<red>Игрок не найден."
+    sound: none
+
+  admin-reloaded:
+    type: chat
+    text: "<green>Конфиг и локализация перезагружены."
+    sound: none
+
+  admin-reload-failed:
+    type: chat
+    text: "<red>Ошибка перезагрузки, оставлены прежние настройки. Подробности в логе."
+    sound: none
+
+  admin-reload-provider-restart:
+    type: chat
+    text: "<yellow>Смена item-provider применится после рестарта сервера."
+    sound: none
+
+  admin-not-locked:
+    type: chat
+    text: "<red>На объекте нет замка."
+    sound: none
+
+  admin-no-target:
+    type: chat
+    text: "<red>Посмотрите на запертый объект."
+    sound: none
+
+  admin-no-permission:
+    type: chat
+    text: "<red>Недостаточно прав."
+    sound: none
+
+  admin-usage:
+    type: chat
+    text: "<gray>/outlands-locks <inspect|remove|destroy|copykey|copylock|give|reload>"
+    sound: none

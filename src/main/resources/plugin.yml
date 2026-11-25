@@ -1,0 +1,17 @@
+name: Outlands-Locks
+version: '${version}'
+main: ru.outlands.locks.OutlandsLocks
+api-version: '1.21.11'
+description: Locks and keys for chests, doors and trapdoors
+softdepend: [Nexo, PlaceholderAPI]
+commands:
+  outlands-locks:
+    description: Outlands-Locks admin commands
+    usage: /outlands-locks <inspect|remove|destroy|copykey|copylock|give|reload>
+permissions:
+  outlands.locks.admin:
+    description: Use /outlands-locks
+    default: op
+  outlands.locks.bypass:
+    description: Open and break locked chests without a key
+    default: op

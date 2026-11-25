@@ -1,0 +1,51 @@
+# File name from the languages folder, without .yml
+language: en
+
+# vanilla or nexo. Changing it needs a server restart.
+item-provider: vanilla
+
+items:
+  # Use non-placeable materials. item-model and custom-model-data are optional.
+  vanilla:
+    lock:
+      material: IRON_INGOT
+      item-model: ""
+      custom-model-data: ~
+    blank-key:
+      material: IRON_NUGGET
+      item-model: ""
+      custom-model-data: ~
+    key:
+      material: GOLD_NUGGET
+      item-model: ""
+      custom-model-data: ~
+  # Nexo item ids.
+  nexo:
+    lock: lock
+    blank-key: blank_key
+    key: key
+
+# Write the lock id and the lock state into the lore of locks and keys the plugin builds. Off: items stay unmarked.
+item-lore: false
+
+# Lock display on the chest front. offset in blocks from the face centre (out = away from the chest), rotation in degrees.
+display:
+  offset: { right: 0.0, up: 0.1, out: -0.05 }
+  scale: 0.4
+  rotation: { yaw: 0.0, pitch: 0.0, roll: 0.0 }
+
+# Lock display on doors, one on each face of the door. right: toward the handle, up: from handle height.
+door-display:
+  offset: { right: 0.0, up: 0.0, out: 0.02 }
+  scale: 0.3
+  rotation: { yaw: 0.0, pitch: 0.0, roll: 0.0 }
+
+# Lock display on trapdoors, one on each face. right: along the trapdoor, up: from the middle of an open one.
+trapdoor-display:
+  offset: { right: 0.0, up: 0.0, out: 0.02 }
+  scale: 0.3
+  rotation: { yaw: 0.0, pitch: 0.0, roll: 0.0 }
+
+# Entity types whose explosions can break a locked chest. Other explosions leave it intact.
+explosions:
+  allowed-sources: [TNT, TNT_MINECART]
