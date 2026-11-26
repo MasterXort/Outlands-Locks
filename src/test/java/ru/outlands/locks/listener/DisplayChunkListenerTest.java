@@ -8,7 +8,9 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
+import org.bukkit.event.world.WorldUnloadEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 import ru.outlands.locks.OutlandsLocks;
+import ru.outlands.locks.display.ChunkRef;
 import ru.outlands.locks.display.DisplayReconciler;
 import ru.outlands.locks.lock.LockData;
 import ru.outlands.locks.lock.LockableBlocks;
@@ -24,6 +27,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -225,5 +229,49 @@ class DisplayChunkListenerTest {
         tick();
 
         assertEquals(1, displays().size());
+    }
+
+    // ---- the list of chunks that wait for a neighbour does not keep what is gone ----
+
+    @Test
+    void aChunkThatUnloadsNoLongerWaitsForItsNeighbour() {
+        Block leaving = lockedChest(15, 5);
+        Block staying = lockedChest(15, 37);
+        chunkLoaded(leaving.getChunk());
+        chunkLoaded(staying.getChunk());
+        tick();
+
+        server.getPluginManager().callEvent(new ChunkUnloadEvent(leaving.getChunk(), false));
+
+        DisplayReconciler reconciler = plugin.displayReconciler();
+        assertTrue(reconciler.takeWaiters(new ChunkRef(world.getUID(), 1, 0)).isEmpty());
+        assertEquals(Set.of(ChunkRef.of(staying.getChunk())),
+                reconciler.takeWaiters(new ChunkRef(world.getUID(), 1, 2)),
+                "the chunk that stays is still waiting");
+    }
+
+    @Test
+    void aWorldThatUnloadsTakesTheWaitingChunksOfItWithIt() {
+        Block edge = lockedChest(15, 5);
+        chunkLoaded(edge.getChunk());
+        tick();
+
+        server.getPluginManager().callEvent(new WorldUnloadEvent(world));
+
+        assertTrue(plugin.displayReconciler().takeWaiters(new ChunkRef(world.getUID(), 1, 0)).isEmpty());
+    }
+
+    @Test
+    void aWorldUnloadThatIsCancelledChangesNothing() {
+        Block edge = lockedChest(15, 5);
+        chunkLoaded(edge.getChunk());
+        tick();
+        WorldUnloadEvent event = new WorldUnloadEvent(world);
+        event.setCancelled(true);
+
+        server.getPluginManager().callEvent(event);
+
+        assertEquals(Set.of(ChunkRef.of(edge.getChunk())),
+                plugin.displayReconciler().takeWaiters(new ChunkRef(world.getUID(), 1, 0)));
     }
 }

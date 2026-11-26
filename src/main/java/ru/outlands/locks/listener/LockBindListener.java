@@ -21,7 +21,8 @@ import java.util.UUID;
  * Ties a lock to an existing key (owner decision 25.11.2026): sneak + right click with a lock whose key has not been
  * cut in the main hand and a key in the off hand. The lock then carries the key's lock id and counts as cut, so the key
  * opens every chest this lock is hung on and no other key can be cut for it. It works in the air and on any block and
- * comes before installing, so the same click never also hangs the lock: the next sneak + right click does.
+ * comes before installing, so the same click never also hangs the lock: the next sneak + right click does. It needs
+ * the permission {@code outlands.locks.use}; without it the click is refused, and still not passed on.
  */
 public final class LockBindListener implements Listener {
 
@@ -57,6 +58,10 @@ public final class LockBindListener implements Listener {
         }
 
         event.setCancelled(true);
+        if (!plugin.access().canUse(player)) {
+            plugin.messages().send(player, "use-denied");
+            return;
+        }
         ItemStack bound = plugin.lockItems().boundLock(lock, keyLockId.get());
         if (lock.getAmount() == 1) {
             player.getInventory().setItemInMainHand(bound);

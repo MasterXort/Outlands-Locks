@@ -64,7 +64,7 @@ class DisplayReconcilerTest {
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
                 for (int y = 60; y < 68; y++) {
-                    Block block = world.getBlockAt(chunk.getX() * 16 + x, y, chunk.getZ() * 16 + z);
+                    Block block = chunk.getWorld().getBlockAt(chunk.getX() * 16 + x, y, chunk.getZ() * 16 + z);
                     if (LockableBlocks.isLockable(block.getType())) {
                         out.add(block.getState(false));
                     }
@@ -463,5 +463,100 @@ class DisplayReconcilerTest {
 
         assertFalse(world.isChunkLoaded(1, 0));
         assertTrue(displays().isEmpty());
+    }
+
+    // --- a half of a double chest only waits for the chunk of its partner ---
+
+    @Test
+    void aRightHalfAtTheWestEdgeWaitsForTheChunkOfItsPartnerAndDoesNotLoadIt() {
+        // facing north, a RIGHT half is paired with the chest to its west, which is in chunk -1
+        Block edge = chest(0, 5, Chest.Type.RIGHT);
+        BlockData shape = edge.getBlockData();
+        plugin.storage().write(List.of(edge), new LockData(UUID.randomUUID(), false));
+        edge.setBlockData(shape);
+        assertFalse(world.isChunkLoaded(-1, 0));
+
+        reconciler.reconcile(chunkOf(edge));
+
+        assertFalse(world.isChunkLoaded(-1, 0));
+        assertTrue(displays().isEmpty());
+        assertEquals(java.util.Set.of(ChunkRef.of(chunkOf(edge))),
+                reconciler.takeWaiters(new ChunkRef(world.getUID(), -1, 0)));
+    }
+
+    @Test
+    void aHalfWhosePartnerIsInThisChunkIsJudgedAlthoughTheChunkOnTheOtherSideIsNotLoaded() {
+        // facing north, a LEFT half is paired with the chest to its east, in this chunk; chunk -1 is not its business
+        Block left = chest(0, 5, Chest.Type.LEFT);
+        chest(1, 5, Chest.Type.RIGHT);
+        lockWithoutDisplay(left);
+        displayFor(left, new LockData(UUID.randomUUID(), false));
+        assertFalse(world.isChunkLoaded(-1, 0));
+
+        reconciler.reconcile(chunkOf(left));
+
+        assertTrue(displays().isEmpty(), "the display of another lock goes, the chunk on the far side is not awaited");
+        assertFalse(world.isChunkLoaded(-1, 0));
+        assertEquals(java.util.Set.of(ChunkRef.of(chunkOf(left))),
+                reconciler.takeWaiters(new ChunkRef(world.getUID(), -1, 0)),
+                "the new display waits: it reaches into the chunk that is not loaded");
+    }
+
+    // --- the waiting list does not outlive the chunks in it ---
+
+    @Test
+    void aChunkThatUnloadsStopsWaitingForItsNeighbour() {
+        Block edge = chest(15, 5);
+        lockWithoutDisplay(edge);
+        reconciler.reconcile(chunkOf(edge));
+
+        reconciler.forgetWaiter(ChunkRef.of(chunkOf(edge)));
+
+        assertTrue(reconciler.takeWaiters(new ChunkRef(world.getUID(), 1, 0)).isEmpty());
+    }
+
+    @Test
+    void onlyTheChunkThatUnloadedIsForgotten() {
+        Block west = chest(15, 5);
+        Block south = chest(20, 16);
+        lockWithoutDisplay(west);
+        lockWithoutDisplay(south);
+        reconciler.reconcile(chunkOf(west));
+        reconciler.reconcile(chunkOf(south));
+
+        reconciler.forgetWaiter(ChunkRef.of(chunkOf(west)));
+
+        assertEquals(java.util.Set.of(ChunkRef.of(chunkOf(south))),
+                reconciler.takeWaiters(new ChunkRef(world.getUID(), 1, 0)));
+    }
+
+    @Test
+    void forgettingAChunkThatWaitsForNothingChangesNothing() {
+        Block edge = chest(15, 5);
+        lockWithoutDisplay(edge);
+        reconciler.reconcile(chunkOf(edge));
+
+        reconciler.forgetWaiter(new ChunkRef(world.getUID(), 7, 7));
+
+        assertEquals(java.util.Set.of(ChunkRef.of(chunkOf(edge))),
+                reconciler.takeWaiters(new ChunkRef(world.getUID(), 1, 0)));
+    }
+
+    @Test
+    void aWorldThatUnloadsTakesItsChunksOutOfTheListButNotThoseOfOtherWorlds() {
+        WorldMock other = server.addSimpleWorld("other");
+        Block mine = chest(15, 5);
+        Block theirs = other.getBlockAt(15, 64, 5);
+        theirs.setType(Material.CHEST);
+        lockWithoutDisplay(mine);
+        lockWithoutDisplay(theirs);
+        reconciler.reconcile(chunkOf(mine));
+        reconciler.reconcile(chunkOf(theirs));
+
+        reconciler.forgetWorld(world.getUID());
+
+        assertTrue(reconciler.takeWaiters(new ChunkRef(world.getUID(), 1, 0)).isEmpty());
+        assertEquals(java.util.Set.of(ChunkRef.of(chunkOf(theirs))),
+                reconciler.takeWaiters(new ChunkRef(other.getUID(), 1, 0)));
     }
 }

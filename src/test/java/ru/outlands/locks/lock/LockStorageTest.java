@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LockStorageTest {
@@ -205,5 +206,53 @@ class LockStorageTest {
         chest(1, 64, 0, Material.CHEST, BlockFace.SOUTH, Chest.Type.RIGHT);
         chest(-1, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.SINGLE);
         assertEquals(List.of(a), ChestHalves.of(a));
+    }
+
+    @Test
+    void vanillaPairsALeftHalfClockwiseAndARightHalfCounterClockwiseFromItsFacing() {
+        assertEquals(BlockFace.EAST, ChestHalves.partnerSide(BlockFace.NORTH, Chest.Type.LEFT));
+        assertEquals(BlockFace.SOUTH, ChestHalves.partnerSide(BlockFace.EAST, Chest.Type.LEFT));
+        assertEquals(BlockFace.WEST, ChestHalves.partnerSide(BlockFace.SOUTH, Chest.Type.LEFT));
+        assertEquals(BlockFace.NORTH, ChestHalves.partnerSide(BlockFace.WEST, Chest.Type.LEFT));
+        assertEquals(BlockFace.WEST, ChestHalves.partnerSide(BlockFace.NORTH, Chest.Type.RIGHT));
+        assertEquals(BlockFace.NORTH, ChestHalves.partnerSide(BlockFace.EAST, Chest.Type.RIGHT));
+        assertEquals(BlockFace.EAST, ChestHalves.partnerSide(BlockFace.SOUTH, Chest.Type.RIGHT));
+        assertEquals(BlockFace.SOUTH, ChestHalves.partnerSide(BlockFace.WEST, Chest.Type.RIGHT));
+    }
+
+    @Test
+    void aSingleChestHasNoPartnerSide() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ChestHalves.partnerSide(BlockFace.NORTH, Chest.Type.SINGLE));
+    }
+
+    @Test
+    void twoDoubleChestsSideBySideKeepTheirOwnPairs() {
+        // facing north: LEFT is paired with the chest to its east, RIGHT with the chest to its west
+        Block a = chest(0, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.LEFT);
+        Block b = chest(1, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.RIGHT);
+        Block c = chest(2, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.LEFT);
+        Block d = chest(3, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.RIGHT);
+
+        assertEquals(List.of(a, b), ChestHalves.of(a));
+        assertEquals(List.of(b, a), ChestHalves.of(b));
+        assertEquals(List.of(c, d), ChestHalves.of(c), "not b, the right half of the pair next door");
+        assertEquals(List.of(d, c), ChestHalves.of(d));
+    }
+
+    @Test
+    void aLockOnOnePairOfARowDoesNotReachTheNextPair() {
+        Block a = chest(0, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.LEFT);
+        Block b = chest(1, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.RIGHT);
+        Block c = chest(2, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.LEFT);
+        Block d = chest(3, 64, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.RIGHT);
+        LockData data = new LockData(UUID.randomUUID(), true);
+
+        storage.write(ChestHalves.of(c), data);
+
+        assertEquals(Optional.of(data), storage.read(c));
+        assertEquals(Optional.of(data), storage.read(d));
+        assertTrue(storage.read(a).isEmpty());
+        assertTrue(storage.read(b).isEmpty());
     }
 }

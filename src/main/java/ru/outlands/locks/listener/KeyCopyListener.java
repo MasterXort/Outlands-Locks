@@ -18,7 +18,8 @@ import java.util.UUID;
 /**
  * Key copying (PLAN 4.4, owner decision 25.11.2026): sneak + right click with a blank key in the main hand and a key
  * in the off hand turns one blank into a copy of that key. The key stays. It works in the air and on any block, and
- * it comes before cutting and opening, so the event is cancelled here and the other listeners skip it.
+ * it comes before cutting and opening, so the event is cancelled here and the other listeners skip it. It needs the
+ * permission {@code outlands.locks.use}; without it the click is refused, and still not passed on.
  */
 public final class KeyCopyListener implements Listener {
 
@@ -54,6 +55,10 @@ public final class KeyCopyListener implements Listener {
         }
 
         event.setCancelled(true);
+        if (!plugin.access().canUse(player)) {
+            plugin.messages().send(player, "use-denied");
+            return;
+        }
         Optional<ItemStack> created = plugin.lockItems().key(lockId.get());
         if (created.isEmpty()) {
             plugin.getLogger().warning("Key not copied: the key item cannot be built.");

@@ -1,5 +1,6 @@
 package ru.outlands.locks.listener;
 
+import com.destroystokyo.paper.event.block.BlockDestroyEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.ExplosionResult;
@@ -20,6 +21,8 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -38,6 +41,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 import ru.outlands.locks.OutlandsLocks;
+import ru.outlands.locks.command.OutlandsLocksCommand;
 import ru.outlands.locks.item.LockItemType;
 import ru.outlands.locks.lock.LockData;
 import ru.outlands.locks.lock.LockableBlocks;
@@ -196,6 +200,23 @@ class LockDoorTest {
                 Material.WAXED_EXPOSED_COPPER_DOOR, Material.IRON_TRAPDOOR, Material.COPPER_TRAPDOOR,
                 Material.WAXED_COPPER_TRAPDOOR, Material.OAK_FENCE_GATE)) {
             assertFalse(LockableBlocks.isLockable(m), m.name());
+        }
+    }
+
+    /**
+     * The doors and trapdoors come from the block tags now. They used to be picked by name: every material that ends in
+     * _DOOR or _TRAPDOOR and is neither iron nor copper. For every material of the server's enum the two must agree.
+     */
+    @Test
+    void theTagsPickExactlyWhatTheOldNameRulesPicked() {
+        for (Material m : Material.values()) {
+            if (m.isLegacy()) {
+                continue;
+            }
+            String name = m.name();
+            boolean wooden = !name.contains("IRON") && !name.contains("COPPER");
+            assertEquals(name.endsWith("_DOOR") && wooden, LockableBlocks.isDoor(m), name);
+            assertEquals(name.endsWith("_TRAPDOOR") && wooden, LockableBlocks.isTrapdoor(m), name);
         }
     }
 
@@ -1145,5 +1166,324 @@ class LockDoorTest {
     @Test
     void theShippedTrapdoorSettingsAreTheDefaults() {
         assertEquals(DisplaySettings.TRAPDOOR_DEFAULT, plugin.settings().trapdoorDisplay());
+    }
+
+    // ---- a door whose floor is gone: the server destroys it, unless it is locked ----
+
+    private BlockDestroyEvent destroy(Block block) {
+        BlockDestroyEvent event = new BlockDestroyEvent(block, Material.AIR.createBlockData(), block.getBlockData(),
+                0, true);
+        server.getPluginManager().callEvent(event);
+        return event;
+    }
+
+    /** Stands in for another plugin that has the last word, after our HIGH handlers ran. */
+    private static final class LateCancel implements org.bukkit.event.Listener {
+        @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
+        public void onBreak(BlockBreakEvent event) {
+            event.setCancelled(true);
+        }
+
+        @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
+        public void onPlace(BlockPlaceEvent event) {
+            event.setCancelled(true);
+        }
+    }
+
+    private List<org.bukkit.entity.Item> droppedItems() {
+        return world.getEntitiesByClass(org.bukkit.entity.Item.class).stream().toList();
+    }
+
+    @Test
+    void theServerDoesNotDestroyEitherHalfOfALockedDoor() {
+        Block lower = door(5, 5);
+        LockData data = lock(lower, true);
+
+        assertTrue(destroy(lower).isCancelled());
+        assertTrue(destroy(upperOf(lower)).isCancelled());
+
+        assertEquals(Optional.of(data), plugin.storage().read(lower));
+        assertEquals(2, displays().size());
+    }
+
+    @Test
+    void theServerDoesNotDestroyALockedTrapdoorEither() {
+        Block block = trapdoor(5, 5, Bisected.Half.BOTTOM, false);
+        LockData data = lock(block, true);
+
+        assertTrue(destroy(block).isCancelled());
+
+        assertEquals(Optional.of(data), plugin.storage().read(block));
+        assertEquals(2, displays().size());
+    }
+
+    @Test
+    void unlockedDoorsAndTrapdoorsAndOtherBlocksAreDestroyedAsUsual() {
+        Block lower = door(5, 5);
+        Block trapdoor = trapdoor(7, 5, Bisected.Half.BOTTOM, false);
+        Block stone = world.getBlockAt(9, 64, 5);
+        stone.setType(Material.STONE);
+        Block iron = door(11, 5, Material.IRON_DOOR, Door.Hinge.LEFT, false);
+
+        for (Block block : List.of(lower, upperOf(lower), trapdoor, stone, iron, upperOf(iron))) {
+            assertFalse(destroy(block).isCancelled(), block.getType().name());
+        }
+    }
+
+    @Test
+    void aFloorLostToACreeperLeavesTheLockedDoorStanding() {
+        Block lower = door(5, 5);
+        LockData data = lock(lower, true);
+        Block floor = lower.getRelative(BlockFace.DOWN);
+        floor.setType(Material.STONE);
+
+        EntityExplodeEvent blast = explode(EntityType.CREEPER, floor);
+        floor.setType(Material.AIR);
+
+        assertEquals(List.of(floor), blast.blockList(), "the floor is not a locked block, the blast takes it");
+        assertTrue(destroy(lower).isCancelled());
+        assertTrue(destroy(upperOf(lower)).isCancelled());
+        assertEquals(Optional.of(data), plugin.storage().read(lower));
+        assertEquals(2, displays().size());
+    }
+
+    @Test
+    void aFloorLostToABedExplosionLeavesTheLockedDoorStanding() {
+        Block lower = door(5, 5);
+        LockData data = lock(lower, true);
+        Block floor = lower.getRelative(BlockFace.DOWN);
+        floor.setType(Material.STONE);
+        Block bed = world.getBlockAt(20, 64, 20);
+        bed.setType(Material.RED_BED);
+        BlockExplodeEvent blast = new BlockExplodeEvent(bed, bed.getState(), new ArrayList<>(List.of(floor)), 1f,
+                ExplosionResult.DESTROY);
+
+        server.getPluginManager().callEvent(blast);
+        floor.setType(Material.AIR);
+
+        assertEquals(List.of(floor), blast.blockList());
+        assertTrue(destroy(lower).isCancelled());
+        assertEquals(Optional.of(data), plugin.storage().read(lower));
+    }
+
+    @Test
+    void aFloorBurntAwayLeavesTheLockedDoorStanding() {
+        Block lower = door(5, 5);
+        LockData data = lock(lower, true);
+        Block floor = lower.getRelative(BlockFace.DOWN);
+        floor.setType(Material.OAK_PLANKS);
+
+        BlockBurnEvent burn = new BlockBurnEvent(floor, null);
+        server.getPluginManager().callEvent(burn);
+        floor.setType(Material.AIR);
+
+        assertFalse(burn.isCancelled(), "the plugin does not guard planks");
+        assertTrue(destroy(lower).isCancelled());
+        assertTrue(destroy(upperOf(lower)).isCancelled());
+        assertEquals(Optional.of(data), plugin.storage().read(lower));
+        assertEquals(2, displays().size());
+    }
+
+    @Test
+    void afterAnExplosionOfAnAllowedSourceTheOtherHalfOfTheDoorIsLetGo() {
+        Block lower = door(5, 5);
+        lock(lower, true);
+
+        explode(EntityType.TNT, lower);
+
+        assertTrue(plugin.storage().read(lower).isEmpty());
+        assertFalse(destroy(upperOf(lower)).isCancelled());
+        assertFalse(destroy(lower).isCancelled());
+    }
+
+    @Test
+    void theSameWhenOnlyTheUpperHalfIsInTheBlast() {
+        Block lower = door(5, 5);
+        lock(lower, true);
+
+        explode(EntityType.TNT, upperOf(lower));
+
+        assertTrue(plugin.storage().read(lower).isEmpty());
+        assertFalse(destroy(lower).isCancelled());
+        assertFalse(destroy(upperOf(lower)).isCancelled());
+    }
+
+    @Test
+    void afterACreativeBreakOfOneHalfTheOtherHalfIsLetGo() {
+        player.setGameMode(GameMode.CREATIVE);
+        Block first = door(5, 5);
+        Block second = door(7, 5);
+        lock(first, true);
+        lock(second, true);
+
+        server.getPluginManager().callEvent(new BlockBreakEvent(first, player));
+        server.getPluginManager().callEvent(new BlockBreakEvent(upperOf(second), player));
+
+        assertFalse(destroy(upperOf(first)).isCancelled());
+        assertFalse(destroy(second).isCancelled());
+        assertEquals(2, droppedItems().size(), "one lock for each door that was broken");
+    }
+
+    @Test
+    void breakingTheFloorInCreativeLetsTheDoorGoAndTheLockDrops() {
+        Block lower = door(5, 5);
+        LockData data = lock(lower, true);
+        Block floor = lower.getRelative(BlockFace.DOWN);
+        floor.setType(Material.STONE);
+        player.setGameMode(GameMode.CREATIVE);
+        BlockBreakEvent event = new BlockBreakEvent(floor, player);
+
+        server.getPluginManager().callEvent(event);
+
+        assertFalse(event.isCancelled());
+        assertTrue(plugin.storage().read(lower).isEmpty());
+        assertTrue(displays().isEmpty());
+        List<org.bukkit.entity.Item> dropped = droppedItems();
+        assertEquals(1, dropped.size());
+        assertEquals(data, LockData.read(dropped.get(0).getItemStack().getItemMeta().getPersistentDataContainer(),
+                plugin.keys()).orElseThrow());
+        assertFalse(destroy(lower).isCancelled());
+        assertFalse(destroy(upperOf(lower)).isCancelled());
+    }
+
+    @Test
+    void breakingTheFloorWithTheBypassPermissionLetsTheDoorGoToo() {
+        Block lower = door(5, 5);
+        lock(lower, true);
+        Block floor = lower.getRelative(BlockFace.DOWN);
+        floor.setType(Material.STONE);
+        player.addAttachment(plugin, "outlands.locks.bypass", true);
+
+        server.getPluginManager().callEvent(new BlockBreakEvent(floor, player));
+
+        assertTrue(plugin.storage().read(lower).isEmpty());
+        assertEquals(1, droppedItems().size());
+        assertFalse(destroy(lower).isCancelled());
+    }
+
+    @Test
+    void aFloorBreakThatAnotherPluginCancelsLaterKeepsTheLockOnTheDoor() {
+        server.getPluginManager().registerEvents(new LateCancel(), plugin);
+        Block lower = door(5, 5);
+        LockData data = lock(lower, true);
+        Block floor = lower.getRelative(BlockFace.DOWN);
+        floor.setType(Material.STONE);
+        player.setGameMode(GameMode.CREATIVE);
+        BlockBreakEvent event = new BlockBreakEvent(floor, player);
+
+        server.getPluginManager().callEvent(event);
+
+        assertTrue(event.isCancelled());
+        assertEquals(Optional.of(data), plugin.storage().read(lower));
+        assertEquals(2, displays().size());
+        assertTrue(droppedItems().isEmpty());
+    }
+
+    @Test
+    void aDoorBreakThatAnotherPluginCancelsLaterKeepsItsLockAndDisplays() {
+        server.getPluginManager().registerEvents(new LateCancel(), plugin);
+        Block lower = door(5, 5);
+        LockData data = lock(lower, true);
+        player.setGameMode(GameMode.CREATIVE);
+        BlockBreakEvent event = new BlockBreakEvent(upperOf(lower), player);
+
+        server.getPluginManager().callEvent(event);
+
+        assertTrue(event.isCancelled());
+        assertEquals(Optional.of(data), plugin.storage().read(lower));
+        assertEquals(2, displays().size());
+        assertTrue(droppedItems().isEmpty());
+    }
+
+    private void adminRuns(PlayerMock admin, Block target, String subcommand) {
+        plugin.getCommand("outlands-locks").setExecutor(new OutlandsLocksCommand(plugin, who -> target));
+        plugin.getCommand("outlands-locks").execute(admin, "outlands-locks", new String[]{subcommand});
+    }
+
+    @Test
+    void afterAnAdminTakesTheLockOffTheDoorIsLetGo() {
+        PlayerMock admin = server.addPlayer("Admin");
+        admin.setOp(true);
+        Block destroyed = door(5, 5);
+        Block removed = door(7, 5);
+        lock(destroyed, true);
+        lock(removed, true);
+
+        adminRuns(admin, upperOf(destroyed), "destroy");
+        adminRuns(admin, removed, "remove");
+
+        for (Block lower : List.of(destroyed, removed)) {
+            assertTrue(plugin.storage().read(lower).isEmpty());
+            assertFalse(destroy(lower).isCancelled());
+            assertFalse(destroy(upperOf(lower)).isCancelled());
+        }
+    }
+
+    // ---- a lock left on a spot is taken off only when the placement is final ----
+
+    private BlockPlaceEvent place(Block placed, Material item) {
+        BlockPlaceEvent event = new BlockPlaceEvent(placed, placed.getState(), placed.getRelative(BlockFace.DOWN),
+                new ItemStack(item), player, true);
+        server.getPluginManager().callEvent(event);
+        return event;
+    }
+
+    @Test
+    void aDoorPlacedWhereALockWasLeftShowsNoLock() {
+        Block lower = door(5, 5);
+        lock(lower, true);
+        assertEquals(2, displays().size(), "the displays of the door that was here");
+
+        place(lower, Material.OAK_DOOR);
+
+        assertTrue(plugin.storage().read(lower).isEmpty());
+        assertTrue(displays().isEmpty());
+    }
+
+    @Test
+    void theSameWhenTheEventNamesTheUpperHalfOfTheDoor() {
+        Block lower = door(5, 5);
+        lock(lower, true);
+
+        place(upperOf(lower), Material.OAK_DOOR);
+
+        assertTrue(plugin.storage().read(lower).isEmpty());
+        assertTrue(displays().isEmpty());
+    }
+
+    @Test
+    void aTrapdoorPlacedWhereALockWasLeftShowsNoLock() {
+        Block block = trapdoor(5, 5, Bisected.Half.BOTTOM, false);
+        lock(block, true);
+
+        place(block, Material.OAK_TRAPDOOR);
+
+        assertTrue(plugin.storage().read(block).isEmpty());
+        assertTrue(displays().isEmpty());
+    }
+
+    @Test
+    void theLockOfAnotherDoorIsNotTouchedWhenADoorIsPlaced() {
+        Block placed = door(5, 5);
+        Block other = door(7, 5);
+        LockData data = lock(other, true);
+
+        place(placed, Material.OAK_DOOR);
+
+        assertEquals(Optional.of(data), plugin.storage().read(other));
+        assertEquals(2, displays().size());
+    }
+
+    @Test
+    void aPlacementThatAnotherPluginCancelsLaterLeavesTheOldLockAlone() {
+        server.getPluginManager().registerEvents(new LateCancel(), plugin);
+        Block lower = door(5, 5);
+        LockData data = lock(lower, true);
+
+        BlockPlaceEvent event = place(lower, Material.OAK_DOOR);
+
+        assertTrue(event.isCancelled());
+        assertEquals(Optional.of(data), plugin.storage().read(lower));
+        assertEquals(2, displays().size());
     }
 }

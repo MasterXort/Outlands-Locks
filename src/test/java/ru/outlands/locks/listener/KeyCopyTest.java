@@ -1,6 +1,7 @@
 package ru.outlands.locks.listener;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -379,5 +380,42 @@ class KeyCopyTest {
     @Test
     void thereIsNoCraftingRecipeForTheCopyAnyMore() {
         assertNull(server.getRecipe(new org.bukkit.NamespacedKey(plugin, "key_copy")));
+    }
+
+    // ---- the permission to use locks ----
+
+    @Test
+    void withoutThePermissionNoCopyIsMadeAndTheClickIsStillRefused() {
+        player.addAttachment(plugin, "outlands.locks.use", false);
+        UUID id = UUID.randomUUID();
+        hold(item(LockItemType.BLANK_KEY, 2), keyFor(id));
+
+        PlayerInteractEvent event = clickAir();
+
+        assertTrue(denied(event));
+        ItemStack main = player.getInventory().getItemInMainHand();
+        assertEquals(LockItemType.BLANK_KEY, plugin.items().identify(main).orElse(null));
+        assertEquals(2, main.getAmount());
+        assertEquals(1, keysInInventory().size(), "only the key that was in the off hand");
+        assertEquals("You are not allowed to use locks and keys.",
+                PlainTextComponentSerializer.plainText().serialize(player.nextActionBar()));
+    }
+
+    @Test
+    void withoutThePermissionTheCopyClickOnALockedChestIsRefusedAndNotPassedOn() {
+        player.addAttachment(plugin, "outlands.locks.use", false);
+        Block block = chest();
+        LockData data = lock(block, true);
+        hold(item(LockItemType.BLANK_KEY, 1), keyFor(data.id()));
+
+        PlayerInteractEvent event = click(player, Action.RIGHT_CLICK_BLOCK, block, EquipmentSlot.HAND);
+
+        assertTrue(event.isCancelled());
+        assertEquals(LockItemType.BLANK_KEY,
+                plugin.items().identify(player.getInventory().getItemInMainHand()).orElse(null));
+        assertEquals(1, keysInInventory().size());
+        assertEquals("You are not allowed to use locks and keys.",
+                PlainTextComponentSerializer.plainText().serialize(player.nextActionBar()));
+        assertNull(player.nextActionBar(), "the chest listener did not add a second message");
     }
 }

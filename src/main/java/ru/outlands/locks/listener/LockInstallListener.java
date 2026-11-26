@@ -1,6 +1,8 @@
 package ru.outlands.locks.listener;
 
 import org.bukkit.block.Block;
+import org.bukkit.block.Container;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -15,11 +17,17 @@ import ru.outlands.locks.lock.ChestHalves;
 import ru.outlands.locks.lock.LockData;
 import ru.outlands.locks.lock.LockableBlocks;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
-/** Sneak + right click with a lock on an unlocked chest installs the lock (PLAN 4.1). */
+/**
+ * Sneak + right click with a lock on an unlocked chest installs the lock (PLAN 4.1). It needs the permission
+ * {@code outlands.locks.use}, which everybody has unless it is taken away. Whoever has the chest open at that moment
+ * and could not open it now is sent away from it.
+ */
 public final class LockInstallListener implements Listener {
 
     private final OutlandsLocks plugin;
@@ -59,6 +67,10 @@ public final class LockInstallListener implements Listener {
             }
             return;
         }
+        if (!plugin.access().canUse(player)) {
+            plugin.messages().send(player, "use-denied");
+            return;
+        }
 
         LockData data = LockData.read(hand.getItemMeta().getPersistentDataContainer(), plugin.keys())
                 .orElseGet(() -> new LockData(UUID.randomUUID(), false));
@@ -71,7 +83,28 @@ public final class LockInstallListener implements Listener {
             plugin.getLogger().warning("Lock display not created at " + block.getWorld().getName() + " "
                     + block.getX() + " " + block.getY() + " " + block.getZ() + ": the lock item cannot be built.");
         }
+        closeForOutsiders(halves, data);
         plugin.messages().send(player, "lock-installed", LockPlaceholders.of(player, block, data));
+    }
+
+    /**
+     * A chest that is open on someone's screen stays open when the lock goes on, and they could keep taking items out
+     * of it. Everyone looking into it who would not pass {@code canOpen} for the new lock is sent away. For a double
+     * chest both halves are asked, so a viewer is found whichever half the server lists them on. Closing a view
+     * changes the list the viewers come from, so they are copied first.
+     */
+    private void closeForOutsiders(List<Block> halves, LockData data) {
+        Set<HumanEntity> viewers = new LinkedHashSet<>();
+        for (Block half : halves) {
+            if (half.getState(false) instanceof Container container) {
+                viewers.addAll(container.getInventory().getViewers());
+            }
+        }
+        for (HumanEntity viewer : viewers) {
+            if (!(viewer instanceof Player player) || !plugin.access().canOpen(player, data)) {
+                viewer.closeInventory();
+            }
+        }
     }
 
     private static void takeOne(Player player, ItemStack hand) {

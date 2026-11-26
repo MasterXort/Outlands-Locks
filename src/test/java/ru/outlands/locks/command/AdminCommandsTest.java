@@ -96,10 +96,13 @@ class AdminCommandsTest {
         return chest(0, 0, Chest.Type.SINGLE);
     }
 
-    /** A double chest whose halves are at x and x + 1; the first of them is returned. */
+    /**
+     * A double chest whose halves are at x and x + 1; the first of them is returned. The chests face north, so vanilla
+     * pairs the LEFT one with the chest to its east.
+     */
     private Block doubleChest(int x) {
-        Block first = chest(x, 0, Chest.Type.RIGHT);
-        chest(x + 1, 0, Chest.Type.LEFT);
+        Block first = chest(x, 0, Chest.Type.LEFT);
+        chest(x + 1, 0, Chest.Type.RIGHT);
         return first;
     }
 

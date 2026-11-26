@@ -33,9 +33,10 @@ class ConfigUpdaterTest {
 
     // ---- helpers ----
 
+    /** Line feeds only: a checkout that turned the resources into CRLF would break the line splitting of the tests. */
     private static String resource(String name) throws IOException {
         try (InputStream in = ConfigUpdaterTest.class.getResourceAsStream("/" + name)) {
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         }
     }
 
@@ -295,6 +296,159 @@ class ConfigUpdaterTest {
         assertTrue(result.contains("messages.lock-bound.text"));
         assertTrue(read(file).contains("\n    lock-already-locked:\n"), "same indent as the owner's entries");
         assertEquals("x", result.getString("messages.lock-installed.text"));
+    }
+
+    // ---- comments on column 0 inside an entry ----
+
+    private static final String ITEMS_BUNDLED = """
+            items:
+              vanilla:
+                lock: x
+              nexo:
+                lock: lock
+            other: 1
+            extra: 2
+            """;
+
+    @Test
+    void aCommentOnColumnZeroBetweenTwoChildrenDoesNotSplitTheParent() throws Exception {
+        String old = """
+                items:
+                  vanilla:
+                    lock: x
+                # a comment at column 0
+                  nexo:
+                    lock: lock
+                other: 1
+                """;
+        Path file = write("config.yml", old);
+
+        List<String> added = update(file, ITEMS_BUNDLED);
+
+        assertEquals(List.of("extra"), added, "nexo is a child of items, it is not added a second time");
+        assertEquals(old + "\nextra: 2\n", read(file));
+    }
+
+    @Test
+    void severalCommentLinesAndABlankLineBetweenTheChildrenDoNotSplitTheParentEither() throws Exception {
+        String old = """
+                items:
+                  vanilla:
+                    lock: x
+
+                # first
+                # second
+
+                  nexo:
+                    lock: lock
+                other: 1
+                """;
+        Path file = write("config.yml", old);
+
+        List<String> added = update(file, ITEMS_BUNDLED);
+
+        assertEquals(List.of("extra"), added);
+        assertEquals(old + "\nextra: 2\n", read(file));
+    }
+
+    @Test
+    void theSameOnAFileWithWindowsLineEndings() throws Exception {
+        String old = """
+                items:
+                  vanilla:
+                    lock: x
+                # a comment at column 0
+                  nexo:
+                    lock: lock
+                other: 1
+                """.replace("\n", "\r\n");
+        Path file = write("config.yml", old);
+
+        List<String> added = update(file, ITEMS_BUNDLED);
+
+        assertEquals(List.of("extra"), added);
+        assertEquals(old + "\r\nextra: 2\r\n", read(file));
+    }
+
+    @Test
+    void aCommentedOutKeyOnColumnZeroBetweenTwoKeysDoesNotEndTheBlock() throws Exception {
+        String bundled = """
+                display:
+                  offset: 1
+                  scale: 2
+                  rotation: 3
+                """;
+        String old = """
+                display:
+                  offset: 1
+                #  scale: 9
+                  rotation: 3
+                """;
+        Path file = write("config.yml", old);
+
+        List<String> added = update(file, bundled);
+
+        assertEquals(List.of("display.scale"), added, "the commented-out key is missing, rotation is not");
+        assertEquals(old + "  scale: 2\n", read(file));
+    }
+
+    @Test
+    void theCommentBeforeTheNextSiblingStaysWithTheSibling() throws Exception {
+        String bundled = """
+                a:
+                  x: 1
+                  y: 2
+                # about b
+                b: 3
+                """;
+        String old = """
+                a:
+                  x: 1
+                # about b
+                b: 3
+                """;
+        Path file = write("config.yml", old);
+
+        List<String> added = update(file, bundled);
+
+        assertEquals(List.of("a.y"), added);
+        assertEquals(bundled, read(file), "the new key goes into a, above the comment that belongs to b");
+    }
+
+    @Test
+    void aCommentAtTheEndOfTheFileStaysAtTheEnd() throws Exception {
+        String bundled = """
+                a: 1
+                b: 2
+                """;
+        Path file = write("config.yml", "a: 1\n# the end\n");
+
+        List<String> added = update(file, bundled);
+
+        assertEquals(List.of("b"), added);
+        assertEquals("a: 1\n\nb: 2\n# the end\n", read(file));
+    }
+
+    @Test
+    void aNewChildGoesIntoItsParentAboveAColumnZeroCommentAtTheEndOfTheFile() throws Exception {
+        String bundled = """
+                items:
+                  vanilla:
+                    lock: x
+                  nexo:
+                    lock: lock
+                """;
+        Path file = write("config.yml", """
+                items:
+                  vanilla:
+                    lock: x
+                # the end
+                """);
+
+        List<String> added = update(file, bundled);
+
+        assertEquals(List.of("items.nexo"), added);
+        assertEquals(bundled + "# the end\n", read(file));
     }
 
     // ---- safety ----

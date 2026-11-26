@@ -304,4 +304,21 @@ class LockBindTest {
         assertTrue(dataOf(player.getInventory().getItemInMainHand()).isEmpty());
         assertNull(player.nextActionBar());
     }
+
+    // ---- the permission to use locks ----
+
+    @Test
+    void withoutThePermissionTheLockIsNotTiedAndTheClickIsStillRefused() {
+        player.addAttachment(plugin, "outlands.locks.use", false);
+        hold(newLock(2), keyFor(UUID.randomUUID()));
+
+        PlayerInteractEvent event = clickAir();
+
+        assertTrue(denied(event));
+        ItemStack main = player.getInventory().getItemInMainHand();
+        assertEquals(2, main.getAmount());
+        assertTrue(dataOf(main).isEmpty());
+        assertEquals("You are not allowed to use locks and keys.", plain(player.nextActionBar()));
+        assertEquals(0, player.getHeardSounds().size());
+    }
 }

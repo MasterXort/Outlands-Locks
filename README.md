@@ -31,11 +31,13 @@ Items are recognised by a marker stored on the item, not by material, so an ordi
 
 ## How it works
 
-Chests, trapped chests, wooden doors and wooden trapdoors (every wood, bamboo, cherry, crimson, warped) can be locked. Copper chests, ender chests, iron and copper doors and trapdoors, and fence gates are left alone.
+Chests, trapped chests, wooden doors and wooden trapdoors (every wood, bamboo, cherry, crimson, warped) can be locked. Copper chests, ender chests, iron and copper doors and trapdoors, and fence gates are left alone. Which doors and trapdoors count as wooden is what the vanilla block tags `wooden_doors` and `wooden_trapdoors` say.
+
+Hanging a lock, cutting the first key, copying a key and tying a lock to a key need the permission `outlands.locks.use`. Everybody has it unless a permission plugin takes it away, and without it the click is refused with a message. Opening with a key and taking a lock off do not need it.
 
 | Action | How |
 |---|---|
-| Install a lock | Sneak + right-click an unlocked chest with a lock. A double chest gets one lock for both halves |
+| Install a lock | Sneak + right-click an unlocked chest with a lock. A double chest gets one lock for both halves. Anyone who has the chest open at that moment and could not open it now is sent away from it |
 | Cut the first key | Sneak + right-click a locked chest with a blank key. Anyone can do it, once per lock |
 | Open | Hold a matching key in the main or off hand and right-click |
 | Copy a key | Hold a blank key in the main hand and the key in the off hand, then sneak + right-click (in the air or on a block). One blank becomes a copy and a sound plays. The key is kept. The copy is plain: no custom name or lore |
@@ -50,7 +52,8 @@ Doors and trapdoors work the same way with these differences:
 - Each door leaf and each trapdoor has its own lock (a double door takes two locks; tie both to one key to open both with it). Click either half of a door.
 - The lock is shown on both faces of a **closed** door or trapdoor and is taken away while it stands open (it comes back when it is shut). A key is needed to open; once it is open, anyone can shut it and the lock holds again.
 - Redstone (buttons, levers, plates, signals) cannot open a locked closed door or trapdoor.
-- The block under a locked door cannot be broken by hand, so the door cannot be dropped to lose its lock.
+- The block under a locked door cannot be broken by hand, so the door cannot be dropped to lose its lock. In creative, or with `outlands.locks.bypass`, it can be: the door goes with it and the lock drops, as when the door itself is broken.
+- A locked door or trapdoor is not destroyed when the server would do it, for example when an explosion, a fire or a falling block takes the block under a door: it stays where it is, with its lock. Commands run in the `destroy` mode (`/setblock ... destroy`, `/fill ... destroy`) go through the same step, so take the lock off first (`/outlands-locks remove` or `destroy`).
 - Mobs cannot open them: villagers, piglins and the like are refused, and a mob that still manages to open one (illagers, for example) finds it shut again at once. A mob may shut an open one.
 
 Protection of locked chests and doors:
@@ -86,6 +89,7 @@ Tab completion is available for all subcommands and for the `give` arguments.
 |---|---|---|
 | `outlands.locks.admin` | op | All `/outlands-locks` commands |
 | `outlands.locks.bypass` | op | Open and break any locked chest without a key (the lock drops when the chest breaks) |
+| `outlands.locks.use` | everyone | Hang a lock, cut the first key, copy a key, tie a lock to a key. Opening with a key and taking a lock off do not need it. Take it away from a group to keep it from making locks |
 
 ## Configuration
 

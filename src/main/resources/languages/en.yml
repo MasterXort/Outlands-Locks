@@ -74,6 +74,11 @@ messages:
     text: "<red>A locked object cannot be broken."
     sound: none
 
+  use-denied:
+    type: actionbar
+    text: "<red>You are not allowed to use locks and keys."
+    sound: none
+
   key-copied:
     type: none
     text: ""

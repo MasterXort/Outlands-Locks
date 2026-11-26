@@ -74,6 +74,11 @@ messages:
     text: "<red>Запертое не сломать."
     sound: none
 
+  use-denied:
+    type: actionbar
+    text: "<red>Вам нельзя пользоваться замками и ключами."
+    sound: none
+
   key-copied:
     type: none
     text: ""
