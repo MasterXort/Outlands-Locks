@@ -25,7 +25,7 @@ dependencies {
     compileOnly("me.clip:placeholderapi:2.11.6")
     // Nexo's published API. Only NexoItems and ItemBuilder are used, so its own dependencies are not needed to
     // compile; compileOnly keeps it out of the plugin jar.
-    compileOnly("com.nexomc:nexo:1.30.2") {
+    compileOnly("com.nexomc:nexo:1.28.0") {
         isTransitive = false
     }
 
