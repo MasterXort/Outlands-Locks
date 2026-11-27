@@ -24,9 +24,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Sneak + right click with a lock on an unlocked chest installs the lock (PLAN 4.1). It needs the permission
- * {@code outlands.locks.use}, which everybody has unless it is taken away. Whoever has the chest open at that moment
- * and could not open it now is sent away from it.
+ * Sneak + right click with a lock on an unlocked chest installs the lock (PLAN 4.1). Whoever has the chest open at that
+ * moment and could not open it now is sent away from it.
  */
 public final class LockInstallListener implements Listener {
 
@@ -65,10 +64,6 @@ public final class LockInstallListener implements Listener {
             } else {
                 plugin.messages().send(player, "lock-already-locked");
             }
-            return;
-        }
-        if (!plugin.access().canUse(player)) {
-            plugin.messages().send(player, "use-denied");
             return;
         }
 

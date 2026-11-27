@@ -15,8 +15,6 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.permissions.Permission;
-import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -392,50 +390,6 @@ class LockInstallTest {
         assertTrue(displays().isEmpty());
     }
 
-    // ---- the permission to use locks ----
-
-    @Test
-    void everyoneMayUseLocksUnlessThePermissionIsTakenAway() {
-        Permission permission = server.getPluginManager().getPermission("outlands.locks.use");
-
-        assertNotNull(permission);
-        assertEquals(PermissionDefault.TRUE, permission.getDefault());
-        assertTrue(player.hasPermission("outlands.locks.use"));
-    }
-
-    @Test
-    void withoutThePermissionNoLockIsHungAndTheLockStaysInTheHand() {
-        player.addAttachment(plugin, "outlands.locks.use", false);
-        Block block = chest(Material.CHEST);
-        player.getInventory().setItemInMainHand(newLock(2));
-
-        PlayerInteractEvent event = click(block, player.getInventory().getItemInMainHand());
-
-        assertTrue(plugin.storage().read(block).isEmpty());
-        assertEquals(2, player.getInventory().getItemInMainHand().getAmount());
-        assertTrue(displays().isEmpty());
-        assertTrue(event.isCancelled());
-        assertEquals("You are not allowed to use locks and keys.", plain(player.nextActionBar()));
-    }
-
-    @Test
-    void withoutThePermissionALockedChestStillOpensForAMatchingKey() {
-        Block block = chest(Material.CHEST);
-        player.getInventory().setItemInMainHand(newLock(3));
-        click(block, player.getInventory().getItemInMainHand());
-        LockData data = plugin.storage().read(block).orElseThrow();
-        ItemStack tied = plugin.lockItems().boundLock(newLock(1), UUID.randomUUID());
-        player.getInventory().setItemInMainHand(tied);
-        player.getInventory().setItemInOffHand(keyFor(data.id()));
-        player.addAttachment(plugin, "outlands.locks.use", false);
-        player.nextActionBar();
-
-        click(block, player.getInventory().getItemInMainHand());
-
-        assertNull(player.nextActionBar());
-        assertTrue(chestOpen());
-    }
-
     // ---- a chest that is open when the lock goes on ----
 
     private Inventory inventoryOf(Block block) {
@@ -521,18 +475,5 @@ class LockInstallTest {
         assertFalse(chestOpenFor(bob));
         assertTrue(left.getViewers().isEmpty());
         assertTrue(right.getViewers().isEmpty());
-    }
-
-    @Test
-    void aLockThatIsRefusedLeavesTheViewersAlone() {
-        player.addAttachment(plugin, "outlands.locks.use", false);
-        Block block = chest(Material.CHEST);
-        PlayerMock alex = server.addPlayer("Alex");
-        alex.openInventory(inventoryOf(block));
-        player.getInventory().setItemInMainHand(newLock(1));
-
-        click(block, player.getInventory().getItemInMainHand());
-
-        assertTrue(chestOpenFor(alex));
     }
 }

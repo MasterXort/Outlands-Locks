@@ -15,6 +15,3 @@ permissions:
   outlands.locks.bypass:
     description: Open and break locked chests without a key
     default: op
-  outlands.locks.use:
-    description: Hang locks, cut and copy keys, tie a lock to a key
-    default: true

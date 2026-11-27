@@ -20,8 +20,8 @@ import java.util.Optional;
 
 /**
  * Right click on a locked chest: a blank key in the main hand cuts the first key when the player sneaks (PLAN 4.2,
- * owner decision 25.11.2026; it needs the permission {@code outlands.locks.use}), otherwise the chest opens only for a
- * matching key in either hand or the bypass permission (4.3). The main-hand action goes first (4.6).
+ * owner decision 25.11.2026), otherwise the chest opens only for a matching key in either hand or the bypass
+ * permission (4.3). The main-hand action goes first (4.6).
  */
 public final class KeyListener implements Listener {
 
@@ -52,10 +52,6 @@ public final class KeyListener implements Listener {
         if (player.isSneaking() && plugin.items().identify(hand).orElse(null) == LockItemType.BLANK_KEY) {
             event.setCancelled(true);
             if (!data.keyCut()) {
-                if (!plugin.access().canUse(player)) {
-                    plugin.messages().send(player, "use-denied");
-                    return;
-                }
                 cutFirstKey(player, block, hand, data);
                 return;
             }

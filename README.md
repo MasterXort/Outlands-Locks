@@ -33,8 +33,6 @@ Items are recognised by a marker stored on the item, not by material, so an ordi
 
 Chests, trapped chests, wooden doors and wooden trapdoors (every wood, bamboo, cherry, crimson, warped) can be locked. Copper chests, ender chests, iron and copper doors and trapdoors, and fence gates are left alone. Which doors and trapdoors count as wooden is what the vanilla block tags `wooden_doors` and `wooden_trapdoors` say.
 
-Hanging a lock, cutting the first key, copying a key and tying a lock to a key need the permission `outlands.locks.use`. Everybody has it unless a permission plugin takes it away, and without it the click is refused with a message. Opening with a key and taking a lock off do not need it.
-
 | Action | How |
 |---|---|
 | Install a lock | Sneak + right-click an unlocked chest with a lock. A double chest gets one lock for both halves. Anyone who has the chest open at that moment and could not open it now is sent away from it |
@@ -89,7 +87,6 @@ Tab completion is available for all subcommands and for the `give` arguments.
 |---|---|---|
 | `outlands.locks.admin` | op | All `/outlands-locks` commands |
 | `outlands.locks.bypass` | op | Open and break any locked chest without a key (the lock drops when the chest breaks) |
-| `outlands.locks.use` | everyone | Hang a lock, cut the first key, copy a key, tie a lock to a key. Opening with a key and taking a lock off do not need it. Take it away from a group to keep it from making locks |
 
 ## Configuration
 

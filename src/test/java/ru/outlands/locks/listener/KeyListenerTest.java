@@ -546,36 +546,4 @@ class KeyListenerTest {
 
         assertFalse(click(block).isCancelled());
     }
-
-    // ---- the permission to use locks ----
-
-    @Test
-    void withoutThePermissionTheFirstKeyIsNotCut() {
-        player.setSneaking(true);
-        player.addAttachment(plugin, "outlands.locks.use", false);
-        Block block = chest();
-        lock(block, false);
-        player.getInventory().setItemInMainHand(item(LockItemType.BLANK_KEY, 2));
-
-        PlayerInteractEvent event = click(block);
-
-        assertTrue(event.isCancelled());
-        assertEquals("You are not allowed to use locks and keys.", plain(player.nextActionBar()));
-        assertFalse(plugin.storage().read(block).orElseThrow().keyCut());
-        assertEquals(2, player.getInventory().getItemInMainHand().getAmount());
-        assertTrue(keysInInventory(player).isEmpty());
-    }
-
-    @Test
-    void withoutThePermissionAKeyStillOpensTheChest() {
-        Block block = chest();
-        LockData data = lock(block, true);
-        player.addAttachment(plugin, "outlands.locks.use", false);
-        player.getInventory().setItemInMainHand(keyFor(data.id()));
-
-        PlayerInteractEvent event = click(block);
-
-        assertFalse(event.isCancelled());
-        assertNull(player.nextActionBar());
-    }
 }
