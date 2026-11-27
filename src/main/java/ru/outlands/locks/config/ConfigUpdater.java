@@ -227,7 +227,7 @@ public final class ConfigUpdater {
                 blockIndent = indent;
             }
             int end = i + 1;
-            while (end < to && (lines.get(end).isBlank() || leading(lines.get(end)) > indent)) {
+            while (end < to && belongsTo(lines, end, to, indent)) {
                 end++;
             }
             while (end > i + 1 && lines.get(end - 1).isBlank()) {
@@ -250,6 +250,29 @@ public final class ConfigUpdater {
             i = end;
         }
         return entries;
+    }
+
+    /**
+     * Whether the line at {@code at} is part of the entry whose key stands at {@code indent}: a blank line, or a line
+     * indented deeper than the key. A comment at or left of the key's column does not end the entry when the content
+     * after it is still deeper (an owner's comment on column 0 between two children); when what follows is the next
+     * entry, or the end of the range, the comment is that entry's leading comment and stays out.
+     */
+    private static boolean belongsTo(List<String> lines, int at, int to, int indent) {
+        String line = lines.get(at);
+        if (line.isBlank() || leading(line) > indent) {
+            return true;
+        }
+        if (!line.trim().startsWith("#")) {
+            return false;
+        }
+        for (int i = at + 1; i < to; i++) {
+            String next = lines.get(i);
+            if (!next.isBlank() && !next.trim().startsWith("#")) {
+                return leading(next) > indent;
+            }
+        }
+        return false;
     }
 
     /** The first line of the range that is neither blank nor a comment, trimmed; null if there is none. */

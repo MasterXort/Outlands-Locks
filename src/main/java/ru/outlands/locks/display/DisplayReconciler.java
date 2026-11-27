@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -71,6 +72,27 @@ public final class DisplayReconciler {
     public Set<ChunkRef> takeWaiters(ChunkRef arrived) {
         Set<ChunkRef> waiters = waiting.remove(arrived);
         return waiters == null ? Set.of() : waiters;
+    }
+
+    /**
+     * A chunk that unloads no longer waits for anything: it is checked from the start when it loads again. Without
+     * this, a chunk next to one that never loads would stay in the list for as long as the server runs. The list is
+     * short (only chunks beside an unloaded one), so a pass over it per unloaded chunk costs next to nothing.
+     */
+    public void forgetWaiter(ChunkRef unloaded) {
+        waiting.values().removeIf(waiters -> {
+            waiters.remove(unloaded);
+            return waiters.isEmpty();
+        });
+    }
+
+    /** A world that unloads takes its chunks with it: none of them waits for another and none is waited for. */
+    public void forgetWorld(UUID world) {
+        waiting.keySet().removeIf(missing -> missing.world().equals(world));
+        waiting.values().removeIf(waiters -> {
+            waiters.removeIf(waiter -> waiter.world().equals(world));
+            return waiters.isEmpty();
+        });
     }
 
     /** Does nothing unless the chunk and its entities are loaded. */
@@ -222,13 +244,13 @@ public final class DisplayReconciler {
         }
         World world = block.getWorld();
         if (block.getBlockData() instanceof Chest chest && chest.getType() != Chest.Type.SINGLE) {
-            for (BlockFace side : ChestHalves.sides(chest.getFacing())) {
-                int chunkX = (block.getX() + side.getModX()) >> 4;
-                int chunkZ = (block.getZ() + side.getModZ()) >> 4;
-                if (!world.isChunkLoaded(chunkX, chunkZ)) {
-                    waitFor(waiter, world, chunkX, chunkZ);
-                    return UNKNOWN;
-                }
+            // Only the side of the partner matters; the neighbour on the other side is not part of this chest.
+            BlockFace side = ChestHalves.partnerSide(chest.getFacing(), chest.getType());
+            int chunkX = (block.getX() + side.getModX()) >> 4;
+            int chunkZ = (block.getZ() + side.getModZ()) >> 4;
+            if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                waitFor(waiter, world, chunkX, chunkZ);
+                return UNKNOWN;
             }
         }
         List<Block> halves = ChestHalves.of(block);

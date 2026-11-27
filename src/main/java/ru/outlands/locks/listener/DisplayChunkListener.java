@@ -7,7 +7,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
+import org.bukkit.event.world.WorldUnloadEvent;
 import ru.outlands.locks.OutlandsLocks;
 import ru.outlands.locks.display.ChunkRef;
 
@@ -23,7 +25,8 @@ import java.util.Set;
  * {@link EntitiesLoadEvent} fires for a chunk without entities. So both events only queue the chunk, and one task on
  * the next tick checks every queued chunk once; the check itself does nothing unless the chunk and its entities are
  * loaded, and it is safe to run twice. A chunk skipped for lack of a neighbour is queued again when that neighbour
- * loads.
+ * loads. A chunk that unloads, or a world that does, stops waiting for anything: it is checked from the start when it
+ * comes back.
  */
 public final class DisplayChunkListener implements Listener {
 
@@ -43,6 +46,18 @@ public final class DisplayChunkListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntitiesLoad(EntitiesLoadEvent event) {
         queue(event.getChunk());
+    }
+
+    /** The event cannot be cancelled: the chunk is going. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChunkUnload(ChunkUnloadEvent event) {
+        plugin.displayReconciler().forgetWaiter(ChunkRef.of(event.getChunk()));
+    }
+
+    /** Only an unload that goes through counts: a cancelled one leaves the world, and what waits in it, as it was. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onWorldUnload(WorldUnloadEvent event) {
+        plugin.displayReconciler().forgetWorld(event.getWorld().getUID());
     }
 
     private void queue(Chunk chunk) {

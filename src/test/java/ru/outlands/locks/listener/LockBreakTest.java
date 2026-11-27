@@ -22,10 +22,14 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 import ru.outlands.locks.OutlandsLocks;
+import ru.outlands.locks.item.ItemProvider;
 import ru.outlands.locks.item.LockItemType;
 import ru.outlands.locks.lock.ChestHalves;
+import ru.outlands.locks.lock.ItemLore;
 import ru.outlands.locks.lock.LockData;
+import ru.outlands.locks.lock.LockItems;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -340,6 +344,85 @@ class LockBreakTest {
 
         server.getPluginManager().callEvent(event);
 
+        assertEquals(Optional.of(data), plugin.storage().read(block));
+        assertEquals(1, displays().size());
+        assertTrue(droppedItems().isEmpty());
+    }
+
+    // ---- the lock comes off only when the break is final ----
+
+    /** Stands in for a protection plugin that has the last word on a break, after our HIGH handler ran. */
+    private static final class LateCancel implements org.bukkit.event.Listener {
+        @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
+        public void on(BlockBreakEvent event) {
+            event.setCancelled(true);
+        }
+    }
+
+    @Test
+    void aBreakThatAnotherPluginCancelsLaterLeavesTheLockAndTheDisplayInPlace() {
+        server.getPluginManager().registerEvents(new LateCancel(), plugin);
+        Block block = chest();
+        LockData data = lock(block, true);
+        player.setGameMode(GameMode.CREATIVE);
+
+        BlockBreakEvent event = breakBlock(block);
+
+        assertTrue(event.isCancelled());
+        assertEquals(Optional.of(data), plugin.storage().read(block));
+        assertEquals(1, displays().size());
+        assertTrue(droppedItems().isEmpty());
+    }
+
+    @Test
+    void theSameForTheBypassPermissionAndADoubleChest() {
+        server.getPluginManager().registerEvents(new LateCancel(), plugin);
+        Block a = chest(0, 0, Chest.Type.LEFT);
+        Block b = chest(1, 0, Chest.Type.RIGHT);
+        LockData data = lock(a, true);
+        player.addAttachment(plugin, "outlands.locks.bypass", true);
+
+        assertTrue(breakBlock(b).isCancelled());
+
+        assertEquals(Optional.of(data), plugin.storage().read(a));
+        assertEquals(Optional.of(data), plugin.storage().read(b));
+        assertEquals(1, displays().size());
+        assertTrue(droppedItems().isEmpty());
+    }
+
+    private void set(String field, Object value) throws ReflectiveOperationException {
+        Field f = OutlandsLocks.class.getDeclaredField(field);
+        f.setAccessible(true);
+        f.set(plugin, value);
+    }
+
+    /** The provider can no longer build a lock item, as when a Nexo item id is gone from the Nexo configuration. */
+    private void breakLockItems() throws ReflectiveOperationException {
+        ItemProvider broken = new ItemProvider() {
+            @Override
+            public Optional<LockItemType> identify(ItemStack stack) {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<ItemStack> create(LockItemType type, int amount) {
+                return Optional.empty();
+            }
+        };
+        set("items", broken);
+        set("lockItems", new LockItems(broken, plugin.keys(), new ItemLore(() -> false, plugin::language)));
+    }
+
+    @Test
+    void aBreakIsStillRefusedWhenTheLockItemCannotBeBuilt() throws ReflectiveOperationException {
+        Block block = chest();
+        LockData data = lock(block, true);
+        player.setGameMode(GameMode.CREATIVE);
+        breakLockItems();
+
+        BlockBreakEvent event = breakBlock(block);
+
+        assertTrue(event.isCancelled());
         assertEquals(Optional.of(data), plugin.storage().read(block));
         assertEquals(1, displays().size());
         assertTrue(droppedItems().isEmpty());

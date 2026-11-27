@@ -15,15 +15,19 @@ repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.extendedclip.com/releases/")
+    maven("https://repo.nexomc.com/releases/") {
+        content { includeGroup("com.nexomc") }
+    }
 }
-
-// Nexo.jar is licensed and not part of the repository; compileOnly keeps it out of the plugin jar.
-val nexoJar = file("D:/Games/Minecraft/Outlands/1claude-build/nexo-api/Nexo.jar")
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("me.clip:placeholderapi:2.11.6")
-    compileOnly(files(nexoJar))
+    // Nexo's published API. Only NexoItems and ItemBuilder are used, so its own dependencies are not needed to
+    // compile; compileOnly keeps it out of the plugin jar.
+    compileOnly("com.nexomc:nexo:1.28.0") {
+        isTransitive = false
+    }
 
     testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.116.3")

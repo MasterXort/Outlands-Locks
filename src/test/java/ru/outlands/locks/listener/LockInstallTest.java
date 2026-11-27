@@ -5,6 +5,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Container;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.event.block.Action;
@@ -32,6 +33,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -386,5 +388,92 @@ class LockInstallTest {
         assertTrue(plugin.storage().read(block).isEmpty());
         assertEquals(1, player.getInventory().getItemInMainHand().getAmount());
         assertTrue(displays().isEmpty());
+    }
+
+    // ---- a chest that is open when the lock goes on ----
+
+    private Inventory inventoryOf(Block block) {
+        return ((Container) block.getState()).getInventory();
+    }
+
+    private static boolean chestOpenFor(PlayerMock who) {
+        Inventory top = who.getOpenInventory().getTopInventory();
+        return top != null && top.getType() == InventoryType.CHEST;
+    }
+
+    @Test
+    void someoneWhoHasTheChestOpenIsSentAwayWhenTheLockGoesOn() {
+        Block block = chest(Material.CHEST);
+        PlayerMock alex = server.addPlayer("Alex");
+        Inventory inventory = inventoryOf(block);
+        alex.openInventory(inventory);
+        assertTrue(chestOpenFor(alex));
+        player.getInventory().setItemInMainHand(newLock(1));
+
+        click(block, player.getInventory().getItemInMainHand());
+
+        assertFalse(chestOpenFor(alex));
+        assertTrue(inventory.getViewers().isEmpty());
+        assertTrue(plugin.storage().read(block).isPresent());
+    }
+
+    @Test
+    void severalViewersAreAllSentAway() {
+        Block block = chest(Material.CHEST);
+        Inventory inventory = inventoryOf(block);
+        PlayerMock alex = server.addPlayer("Alex");
+        PlayerMock bob = server.addPlayer("Bob");
+        alex.openInventory(inventory);
+        bob.openInventory(inventory);
+        player.getInventory().setItemInMainHand(newLock(1));
+
+        click(block, player.getInventory().getItemInMainHand());
+
+        assertFalse(chestOpenFor(alex));
+        assertFalse(chestOpenFor(bob));
+        assertTrue(inventory.getViewers().isEmpty());
+    }
+
+    @Test
+    void aViewerWhoCouldOpenTheChestNowStaysAndTheOthersGo() {
+        Block block = chest(Material.CHEST);
+        Inventory inventory = inventoryOf(block);
+        UUID id = UUID.randomUUID();
+        PlayerMock withKey = server.addPlayer("WithKey");
+        PlayerMock withBypass = server.addPlayer("WithBypass");
+        PlayerMock stranger = server.addPlayer("Stranger");
+        withKey.getInventory().setItemInOffHand(keyFor(id));
+        withBypass.addAttachment(plugin, "outlands.locks.bypass", true);
+        for (PlayerMock viewer : List.of(withKey, withBypass, stranger)) {
+            viewer.openInventory(inventory);
+        }
+        player.getInventory().setItemInMainHand(plugin.lockItems().boundLock(newLock(1), id));
+
+        click(block, player.getInventory().getItemInMainHand());
+
+        assertTrue(chestOpenFor(withKey));
+        assertTrue(chestOpenFor(withBypass));
+        assertFalse(chestOpenFor(stranger));
+        assertEquals(List.of(withKey, withBypass), inventory.getViewers());
+    }
+
+    @Test
+    void viewersOfEitherHalfOfADoubleChestAreSentAway() {
+        Block a = chest(0, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.LEFT);
+        Block b = chest(1, 0, Material.CHEST, BlockFace.NORTH, Chest.Type.RIGHT);
+        Inventory left = inventoryOf(a);
+        Inventory right = inventoryOf(b);
+        PlayerMock alex = server.addPlayer("Alex");
+        PlayerMock bob = server.addPlayer("Bob");
+        alex.openInventory(left);
+        bob.openInventory(right);
+        player.getInventory().setItemInMainHand(newLock(1));
+
+        click(b, player.getInventory().getItemInMainHand());
+
+        assertFalse(chestOpenFor(alex));
+        assertFalse(chestOpenFor(bob));
+        assertTrue(left.getViewers().isEmpty());
+        assertTrue(right.getViewers().isEmpty());
     }
 }
